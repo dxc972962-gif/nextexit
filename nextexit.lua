@@ -44,7 +44,7 @@
 ]]
 
 
--- next exit branding / mobile auto-detect / locked theme
+-- next exit branding / mobile auto-detect
 getgenv().NEXT_EXIT_TITLE = "next exit"
 do
     local UIS = game:GetService("UserInputService")
@@ -1948,15 +1948,6 @@ function Native.themes(captures)
                     end
                 end
 
-                
-                -- next exit locked colors
-                self.Library.BackgroundColor = Color3.fromRGB(8, 8, 8)
-                self.Library.MainColor = Color3.fromRGB(18, 18, 18)
-                self.Library.AccentColor = Color3.fromRGB(255, 255, 255)
-                self.Library.OutlineColor = Color3.fromRGB(45, 45, 45)
-                self.Library.FontColor = Color3.fromRGB(255, 255, 255)
-                self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor)
-
                 self.Library:UpdateColorsUsingRegistry()
             end
             function themeManager:LoadDefault()
@@ -2141,42 +2132,12 @@ function Native.themes(captures)
 
         getgenv().ThemeManager = themeManager
 
-        -- next exit: lock theme colors + auto mobile detect + toggle button
+        -- next exit: auto mobile detect + toggle button (color lock removed)
         do
-            local lockedBG = Color3.fromRGB(8, 8, 8)
-            local lockedMain = Color3.fromRGB(18, 18, 18)
-            local lockedAccent = Color3.fromRGB(255, 255, 255)
-            local lockedOutline = Color3.fromRGB(45, 45, 45)
-            local lockedFont = Color3.fromRGB(255, 255, 255)
-
-            local function forceColors(lib)
-                if not lib then return end
-                lib.BackgroundColor = lockedBG
-                lib.MainColor = lockedMain
-                lib.AccentColor = lockedAccent
-                lib.OutlineColor = lockedOutline
-                lib.FontColor = lockedFont
-                if lib.GetDarkerColor then
-                    lib.AccentColorDark = lib:GetDarkerColor(lockedAccent)
-                end
-                if lib.UpdateColorsUsingRegistry then
-                    pcall(function() lib:UpdateColorsUsingRegistry() end)
-                end
-            end
-
             local function applyMobile(lib, state)
                 if not lib then return end
                 lib.IsMobile = state == true
                 getgenv().NEXT_EXIT_FORCE_MOBILE = state == true
-            end
-
-            local oldApply = themeManager.ApplyTheme
-            if type(oldApply) == "function" then
-                themeManager.ApplyTheme = function(self, ...)
-                    local r = oldApply(self, ...)
-                    forceColors(self.Library)
-                    return r
-                end
             end
 
             -- floating Mobile toggle button
@@ -2231,7 +2192,6 @@ function Native.themes(captures)
                 btn.MouseButton1Click:Connect(function()
                     local newState = not (getgenv().NEXT_EXIT_FORCE_MOBILE == true)
                     applyMobile(lib, newState)
-                    forceColors(lib)
                     refresh()
                     pcall(function()
                         if lib.Notify then
@@ -2271,24 +2231,52 @@ function Native.themes(captures)
                     getgenv().NEXT_EXIT_FORCE_MOBILE = autoMobile
                 end
 
-                for i = 1, 80 do
-                    local lib = (getgenv and getgenv().Library) or rawget(_G, "Library")
-                    if lib then
-                        forceColors(lib)
-                        applyMobile(lib, getgenv().NEXT_EXIT_FORCE_MOBILE == true)
-                        createMobileToggleButton(lib)
+                local function forceNextExitBranding()
+                    local function rename(obj)
+                        if not obj then return end
                         pcall(function()
-                            for _, d in ipairs(game:GetService("CoreGui"):GetDescendants()) do
-                                if (d:IsA("TextLabel") or d:IsA("TextButton")) and type(d.Text) == "string" then
-                                    if d.Text:find("Unnamed") then
-                                        d.Text = d.Text:gsub("Unnamed Enhancements %- Cracked", "next exit"):gsub("Unnamed Enhancements", "next exit")
+                            for _, d in ipairs(obj:GetDescendants()) do
+                                if (d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox")) and type(d.Text) == "string" then
+                                    local t = d.Text
+                                    if t:find("Unnamed") or t:find("UE") or t:find("Enhancements") then
+                                        d.Text = t
+                                            :gsub("Unnamed Enhancements %- Cracked", "next exit")
+                                            :gsub("Unnamed Enhancements", "next exit")
+                                            :gsub("Unnamed", "next exit")
+                                            :gsub("UE", "NE")
                                     end
                                 end
                             end
                         end)
+                    end
+
+                    pcall(function() rename(game:GetService("CoreGui")) end)
+                    pcall(function()
+                        local lp = game:GetService("Players").LocalPlayer
+                        if lp then
+                            rename(lp:FindFirstChild("PlayerGui"))
+                        end
+                    end)
+                    pcall(function()
+                        if gethui then rename(gethui()) end
+                    end)
+                end
+
+                for i = 1, 100 do
+                    local lib = (getgenv and getgenv().Library) or rawget(_G, "Library")
+                    if lib then
+                        applyMobile(lib, getgenv().NEXT_EXIT_FORCE_MOBILE == true)
+                        createMobileToggleButton(lib)
+                        forceNextExitBranding()
                         break
                     end
                     task.wait(0.1)
+                end
+
+                -- keep forcing the name so it doesn't revert to UE
+                while true do
+                    forceNextExitBranding()
+                    task.wait(1.5)
                 end
             end)
         end
@@ -2756,8 +2744,30 @@ function Native.slider(captures)
 
     return function()
         function slider:UpdateColors()
-            capture03.BackgroundColor3 = capture07.AccentColor
-            capture03.BorderColor3 = capture07.AccentColorDark
+            local fill = capture03
+            fill.BackgroundColor3 = capture07.AccentColor
+            fill.BorderSizePixel = 0
+            fill.BorderColor3 = fill.BackgroundColor3
+
+            -- 테두리/스트로크 완전 제거
+            for _, child in ipairs(fill:GetChildren()) do
+                if child:IsA("UIStroke") then
+                    child:Destroy()
+                end
+            end
+
+            local track = fill.Parent
+            if track and track:IsA("GuiObject") then
+                track.BorderSizePixel = 0
+                if track.BackgroundColor3 then
+                    track.BorderColor3 = track.BackgroundColor3
+                end
+                for _, child in ipairs(track:GetChildren()) do
+                    if child:IsA("UIStroke") then
+                        child:Destroy()
+                    end
+                end
+            end
         end
         function slider:Display()
             local value022 = capture04.Suffix or ''
@@ -2783,6 +2793,15 @@ function Native.slider(captures)
             capture05[3][capture05[2] ]:Play()
 
             capture08.Visible = not (value023 == 1 or value023 == 0)
+            if typeof(capture08) == "Instance" and capture08:IsA("GuiObject") then
+                capture08.BorderSizePixel = 0
+                capture08.BorderColor3 = capture07.AccentColor
+                for _, child in ipairs(capture08:GetChildren()) do
+                    if child:IsA("UIStroke") then
+                        child:Destroy()
+                    end
+                end
+            end
         end
         function slider:OnChanged(callback)
             table.insert(slider.ChangedFuncs, callback)
