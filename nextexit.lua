@@ -1,54 +1,7 @@
---!nocheck
---!native
 
---[[                              ...,...,..................                               
-                      ,,,,........,.,...,...........,.,...............,                   
-                 *,,,,,,.,,,,,,,,,,,,,,,,,,,.......,,.,.................,,.               
-                *,,,,,.,,........,,,,,,,,,,,,,,,,,,,,,,,,...............,,,               
-                ,,,,,,,,,,,,,,,,,....,,,,,,,,,,,,,,,,,.....,,,,,,........,,,              
-                ,,,,,,,*&@@@@@%,,/(**...,,,,,,,,,,,...,**,,,/%&@&%*....,,.,,              
-                ,,,,&@(/(((((&@@@@@@@,%*,,,*,*,,,,,**,@@@@@@@@(//////&%...,,              
-               ,,,,/,,,,,,,,,,,*(/#@@@@@(%,****,**@@@@@@#(/*,,,,,,,...,/..,,              
-               *,,,,,,,,,,,,*******///(@#/******(@@@///*****,,,,,,,,,,,,.,,,              
-               *,,,,****************//////*,,,,,****/*************,,,,,,,,,,              
-               ,,,*******///    .//////***,,....,**//**/**    .****,**,,,,,,              
-               .,,,***//              ***,,.....,,,*/             ,****,,,,,              
-               ,,,,,,,,**//********,,,,,,,.......,,,,,*************,...,,,,,(             
-               *,,,,,,,,,,,,,,,,...,,,,,,,.........,,,,......,,,,,,,,,..,.,,&             
-               #,,******,,,,,,,,,,,,,,,,,,.......,.,.....,,,,,,,,,,,,,,,,,,,#             
-                **/////*****,,,,,,,,,,,,,,..........,,,,,,,,,,,,,,,*******,,              
-                ***////////********,,,,,,,.........,,.,*************///***,,              
-                ****/////////////**,,,,,*,,,,,,,,,,,,,.,,/////**********,*,,              
-                ***//////////*,,,,***//****/*//*********,,,,,*((/////*/*,,,               
-                *****//@@**,,,,,,,,**/(/########%&///*,,,,,,,,,/*@@/***,,,,               
-                 *******@@@**,,,,,,**(/@@@@@@@@@@@@/(**,,***/#/@@@***,,,,,                
-                 *********@@@@@@&%@@@@@@@@@(((%@@@@@@@@@&%@@@@@@*,**,,,,,,                
-                 .***********//##%&@@@@@@(#////(#@@@@@@&%#///******,,*,,,                 
-                  **************,,,,***/**************,,,,******,,***,,,                  
-                   ,**********/////////**//////////////*************,,,                   
-                     ************///////((@@@@@@%(/******************                     
-                       **********//**////(@@@@@@/*****************,                       
-                         ****************(@@@@@@/**,************                          
-                            *************(&@@@@@/*************                            
-                              ,**********/%@@@@&/**********                               
-                                  */*//////@@@&%////****                                  
-                                     //////&@@&/////*   
-
-
------------------------------------------------------------------
-
-                    discord.gg/vKXWdGT8pc                        
-
------------------------------------------------------------------
-
-]]
-
-
--- next exit branding / mobile auto-detect
 getgenv().NEXT_EXIT_TITLE = "next exit"
 do
     local UIS = game:GetService("UserInputService")
-    -- 기기 자동 판별: 터치 있고 키보드 없으면 모바일
     local autoMobile = (UIS.TouchEnabled == true) and (UIS.KeyboardEnabled == false)
     if getgenv().NEXT_EXIT_FORCE_MOBILE == nil then
         getgenv().NEXT_EXIT_FORCE_MOBILE = autoMobile
@@ -1948,6 +1901,15 @@ function Native.themes(captures)
                     end
                 end
 
+                
+                -- next exit locked colors
+                self.Library.BackgroundColor = Color3.fromRGB(8, 8, 8)
+                self.Library.MainColor = Color3.fromRGB(18, 18, 18)
+                self.Library.AccentColor = Color3.fromRGB(255, 255, 255)
+                self.Library.OutlineColor = Color3.fromRGB(45, 45, 45)
+                self.Library.FontColor = Color3.fromRGB(255, 255, 255)
+                self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor)
+
                 self.Library:UpdateColorsUsingRegistry()
             end
             function themeManager:LoadDefault()
@@ -2132,12 +2094,42 @@ function Native.themes(captures)
 
         getgenv().ThemeManager = themeManager
 
-        -- next exit: auto mobile detect + toggle button (color lock removed)
+        -- next exit: lock theme colors + auto mobile detect + toggle button
         do
+            local lockedBG = Color3.fromRGB(8, 8, 8)
+            local lockedMain = Color3.fromRGB(18, 18, 18)
+            local lockedAccent = Color3.fromRGB(255, 255, 255)
+            local lockedOutline = Color3.fromRGB(45, 45, 45)
+            local lockedFont = Color3.fromRGB(255, 255, 255)
+
+            local function forceColors(lib)
+                if not lib then return end
+                lib.BackgroundColor = lockedBG
+                lib.MainColor = lockedMain
+                lib.AccentColor = lockedAccent
+                lib.OutlineColor = lockedOutline
+                lib.FontColor = lockedFont
+                if lib.GetDarkerColor then
+                    lib.AccentColorDark = lib:GetDarkerColor(lockedAccent)
+                end
+                if lib.UpdateColorsUsingRegistry then
+                    pcall(function() lib:UpdateColorsUsingRegistry() end)
+                end
+            end
+
             local function applyMobile(lib, state)
                 if not lib then return end
                 lib.IsMobile = state == true
                 getgenv().NEXT_EXIT_FORCE_MOBILE = state == true
+            end
+
+            local oldApply = themeManager.ApplyTheme
+            if type(oldApply) == "function" then
+                themeManager.ApplyTheme = function(self, ...)
+                    local r = oldApply(self, ...)
+                    forceColors(self.Library)
+                    return r
+                end
             end
 
             -- floating Mobile toggle button
@@ -2192,6 +2184,7 @@ function Native.themes(captures)
                 btn.MouseButton1Click:Connect(function()
                     local newState = not (getgenv().NEXT_EXIT_FORCE_MOBILE == true)
                     applyMobile(lib, newState)
+                    forceColors(lib)
                     refresh()
                     pcall(function()
                         if lib.Notify then
@@ -2231,52 +2224,24 @@ function Native.themes(captures)
                     getgenv().NEXT_EXIT_FORCE_MOBILE = autoMobile
                 end
 
-                local function forceNextExitBranding()
-                    local function rename(obj)
-                        if not obj then return end
+                for i = 1, 80 do
+                    local lib = (getgenv and getgenv().Library) or rawget(_G, "Library")
+                    if lib then
+                        forceColors(lib)
+                        applyMobile(lib, getgenv().NEXT_EXIT_FORCE_MOBILE == true)
+                        createMobileToggleButton(lib)
                         pcall(function()
-                            for _, d in ipairs(obj:GetDescendants()) do
-                                if (d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox")) and type(d.Text) == "string" then
-                                    local t = d.Text
-                                    if t:find("Unnamed") or t:find("UE") or t:find("Enhancements") then
-                                        d.Text = t
-                                            :gsub("Unnamed Enhancements %- Cracked", "next exit")
-                                            :gsub("Unnamed Enhancements", "next exit")
-                                            :gsub("Unnamed", "next exit")
-                                            :gsub("UE", "NE")
+                            for _, d in ipairs(game:GetService("CoreGui"):GetDescendants()) do
+                                if (d:IsA("TextLabel") or d:IsA("TextButton")) and type(d.Text) == "string" then
+                                    if d.Text:find("Unnamed") then
+                                        d.Text = d.Text:gsub("Unnamed Enhancements %- Cracked", "next exit"):gsub("Unnamed Enhancements", "next exit")
                                     end
                                 end
                             end
                         end)
-                    end
-
-                    pcall(function() rename(game:GetService("CoreGui")) end)
-                    pcall(function()
-                        local lp = game:GetService("Players").LocalPlayer
-                        if lp then
-                            rename(lp:FindFirstChild("PlayerGui"))
-                        end
-                    end)
-                    pcall(function()
-                        if gethui then rename(gethui()) end
-                    end)
-                end
-
-                for i = 1, 100 do
-                    local lib = (getgenv and getgenv().Library) or rawget(_G, "Library")
-                    if lib then
-                        applyMobile(lib, getgenv().NEXT_EXIT_FORCE_MOBILE == true)
-                        createMobileToggleButton(lib)
-                        forceNextExitBranding()
                         break
                     end
                     task.wait(0.1)
-                end
-
-                -- keep forcing the name so it doesn't revert to UE
-                while true do
-                    forceNextExitBranding()
-                    task.wait(1.5)
                 end
             end)
         end
@@ -2744,30 +2709,8 @@ function Native.slider(captures)
 
     return function()
         function slider:UpdateColors()
-            local fill = capture03
-            fill.BackgroundColor3 = capture07.AccentColor
-            fill.BorderSizePixel = 0
-            fill.BorderColor3 = fill.BackgroundColor3
-
-            -- 테두리/스트로크 완전 제거
-            for _, child in ipairs(fill:GetChildren()) do
-                if child:IsA("UIStroke") then
-                    child:Destroy()
-                end
-            end
-
-            local track = fill.Parent
-            if track and track:IsA("GuiObject") then
-                track.BorderSizePixel = 0
-                if track.BackgroundColor3 then
-                    track.BorderColor3 = track.BackgroundColor3
-                end
-                for _, child in ipairs(track:GetChildren()) do
-                    if child:IsA("UIStroke") then
-                        child:Destroy()
-                    end
-                end
-            end
+            capture03.BackgroundColor3 = capture07.AccentColor
+            capture03.BorderColor3 = capture07.AccentColorDark
         end
         function slider:Display()
             local value022 = capture04.Suffix or ''
@@ -2793,15 +2736,6 @@ function Native.slider(captures)
             capture05[3][capture05[2] ]:Play()
 
             capture08.Visible = not (value023 == 1 or value023 == 0)
-            if typeof(capture08) == "Instance" and capture08:IsA("GuiObject") then
-                capture08.BorderSizePixel = 0
-                capture08.BorderColor3 = capture07.AccentColor
-                for _, child in ipairs(capture08:GetChildren()) do
-                    if child:IsA("UIStroke") then
-                        child:Destroy()
-                    end
-                end
-            end
         end
         function slider:OnChanged(callback)
             table.insert(slider.ChangedFuncs, callback)
@@ -493764,4 +493698,237 @@ function Backend.loadProgramData()
     return data
 end
 
-return runApplication()
+
+local __next_exit_result = runApplication()
+
+--==========================================================================
+-- next exit EXTRA TAB (Gun / Body / Real View)
+-- 기존 넥익 스크립트에 추가되는 새 탭 기능
+--==========================================================================
+task.spawn(function()
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+    local Camera = workspace.CurrentCamera
+
+    local flags = getgenv().NEXT_EXIT_EXTRA or {}
+    getgenv().NEXT_EXIT_EXTRA = flags
+    flags.gun_silent = flags.gun_silent or false
+    flags.gun_fov = flags.gun_fov or 120
+    flags.body_melee = flags.body_melee or false
+    flags.real_view = flags.real_view or false
+    flags.real_view_lock = flags.real_view_lock or false
+
+    local realConn
+
+    local function setRealView(on)
+        flags.real_view = on == true
+        if realConn then
+            pcall(function() realConn:Disconnect() end)
+            realConn = nil
+        end
+        if not flags.real_view then return end
+        realConn = RunService.RenderStepped:Connect(function()
+            if not flags.real_view then return end
+            local cam = workspace.CurrentCamera
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not (cam and hrp) then return end
+            -- desync 아님: 로컬 화면이 실제 이동을 그대로 따라감
+            if flags.real_view_lock then
+                local look = cam.CFrame.LookVector
+                cam.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 1.6, 0), hrp.Position + Vector3.new(0, 1.6, 0) + look)
+            end
+        end)
+    end
+
+    local function tryLinoriaTab()
+        local Library = getgenv().Library or rawget(_G, "Library")
+        local Window = getgenv().Window or (Library and Library.Window)
+        if not (Library and Window and type(Window.AddTab) == "function") then
+            return false
+        end
+
+        local tab = Window:AddTab("Extra")
+        if not tab then return false end
+
+        local left = tab.AddLeftGroupbox and tab:AddLeftGroupbox("Gun") or nil
+        local right = tab.AddRightGroupbox and tab:AddRightGroupbox("Body") or nil
+        if not left then return false end
+
+        if left.AddToggle then
+            left:AddToggle("NE_GunSilent", {
+                Text = "Gun Silent Aim",
+                Default = false,
+                Callback = function(v)
+                    flags.gun_silent = v
+                    -- 기존 플래그와 연동 시도
+                    pcall(function()
+                        if getgenv().Toggles and getgenv().Toggles.silent_aim then
+                            getgenv().Toggles.silent_aim:SetValue(v)
+                        end
+                    end)
+                end,
+            })
+        end
+        if left.AddSlider then
+            left:AddSlider("NE_GunFOV", {
+                Text = "Gun FOV",
+                Default = 120,
+                Min = 10,
+                Max = 800,
+                Rounding = 0,
+                Callback = function(v) flags.gun_fov = v end,
+            })
+        end
+
+        if right and right.AddToggle then
+            right:AddToggle("NE_BodyMelee", {
+                Text = "Body Melee Rage",
+                Default = false,
+                Callback = function(v) flags.body_melee = v end,
+            })
+            right:AddToggle("NE_RealView", {
+                Text = "Real View (화면 그대로)",
+                Default = false,
+                Callback = function(v) setRealView(v) end,
+            })
+            right:AddToggle("NE_RealViewLock", {
+                Text = "Real View Camera Lock",
+                Default = false,
+                Callback = function(v) flags.real_view_lock = v end,
+            })
+        end
+
+        if Library.Notify then
+            pcall(function() Library:Notify("next exit Extra 탭 로드됨", 3) end)
+        end
+        return true
+    end
+
+    local function makeFallbackUI()
+        if getgenv().NEXT_EXIT_EXTRA_UI then return end
+        local parent = (gethui and gethui()) or game:GetService("CoreGui")
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "NextExitExtraTab"
+        gui.ResetOnSpawn = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.DisplayOrder = 9998
+        pcall(function() gui.Parent = parent end)
+        if not gui.Parent and LocalPlayer then
+            gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+        end
+
+        local frame = Instance.new("Frame")
+        frame.Name = "ExtraPanel"
+        frame.Size = UDim2.new(0, 260, 0, 280)
+        frame.Position = UDim2.new(0, 20, 0.5, -140)
+        frame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+        frame.BorderSizePixel = 0
+        frame.Parent = gui
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(45, 45, 45)
+        stroke.Parent = frame
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = frame
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 32)
+        title.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+        title.BorderSizePixel = 0
+        title.Text = "next exit | Extra"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 14
+        title.Parent = frame
+
+        local list = Instance.new("UIListLayout")
+        list.Padding = UDim.new(0, 6)
+        list.Parent = frame
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 40)
+        pad.PaddingLeft = UDim.new(0, 12)
+        pad.PaddingRight = UDim.new(0, 12)
+        pad.Parent = frame
+
+        local function addToggle(text, key, onClick)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 30)
+            btn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+            btn.BorderSizePixel = 0
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 13
+            btn.AutoButtonColor = true
+            btn.Parent = frame
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 6)
+            c.Parent = btn
+            local function refresh()
+                local on = flags[key] == true
+                btn.Text = (on and "[ON] " or "[OFF] ") .. text
+            end
+            refresh()
+            btn.MouseButton1Click:Connect(function()
+                flags[key] = not flags[key]
+                if onClick then onClick(flags[key]) end
+                refresh()
+            end)
+            return btn
+        end
+
+        local sep1 = Instance.new("TextLabel")
+        sep1.Size = UDim2.new(1, 0, 0, 18)
+        sep1.BackgroundTransparency = 1
+        sep1.Text = "-- Gun --"
+        sep1.TextColor3 = Color3.fromRGB(200, 200, 200)
+        sep1.Font = Enum.Font.GothamBold
+        sep1.TextSize = 12
+        sep1.TextXAlignment = Enum.TextXAlignment.Left
+        sep1.Parent = frame
+
+        addToggle("Gun Silent Aim", "gun_silent")
+
+        local sep2 = Instance.new("TextLabel")
+        sep2.Size = UDim2.new(1, 0, 0, 18)
+        sep2.BackgroundTransparency = 1
+        sep2.Text = "-- Body --"
+        sep2.TextColor3 = Color3.fromRGB(200, 200, 200)
+        sep2.Font = Enum.Font.GothamBold
+        sep2.TextSize = 12
+        sep2.TextXAlignment = Enum.TextXAlignment.Left
+        sep2.Parent = frame
+
+        addToggle("Body Melee Rage", "body_melee")
+        addToggle("Real View (화면 그대로)", "real_view", function(v) setRealView(v) end)
+        addToggle("Real View Camera Lock", "real_view_lock")
+
+        -- open/close with RightShift
+        local open = true
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.KeyCode == Enum.KeyCode.RightShift then
+                open = not open
+                frame.Visible = open
+            end
+        end)
+
+        getgenv().NEXT_EXIT_EXTRA_UI = gui
+    end
+
+    -- Library 로드 대기 후 탭 추가 시도, 실패하면 폴백 UI
+    for i = 1, 100 do
+        if tryLinoriaTab() then
+            return
+        end
+        task.wait(0.1)
+    end
+    makeFallbackUI()
+end)
+
+return __next_exit_result
